@@ -20,4 +20,3 @@ This is a Python-based menu-driven application developed using Google Colab.
 2. Run all cells
 3. Follow the menu options in output
 
-This project is created for academic submission.
