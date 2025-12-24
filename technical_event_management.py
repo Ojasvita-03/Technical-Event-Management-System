@@ -7,166 +7,189 @@ Original file is located at
     https://colab.research.google.com/drive/1KlXhHezOr4G8WXQyjxF9X3uUftFLfOl7
 """
 
-from google.colab import files
-uploaded = files.upload()
+import getpass
+from datetime import datetime, timedelta
 
-import pandas as pd
-
-df = pd.read_excel("Technical Event Management 1.xlsx")
-print("Excel loaded successfully")
-print(df.head())
-
-# DATA STORAGE (in-memory)
-admins = {}
-vendors = {}
+admins = {"admin": "admin123"}
 users = {}
-products = []
-cart = []
-orders = []
+memberships = {}
+current_session = {"role": None, "username": None}
 
-# AUTH FUNCTIONS
-def admin_signup():
-    u = input("Admin Username: ")
-    p = input("Password: ")
-    admins[u] = p
-    print("Admin Registered Successfully")
+def clear_session():
+    current_session["role"] = None
+    current_session["username"] = None
+
+def require_login(role):
+    return current_session["role"] == role
 
 def admin_login():
-    u = input("Username: ")
-    p = input("Password: ")
-    return admins.get(u) == p
-
-def vendor_signup():
-    u = input("Vendor Username: ")
-    p = input("Password: ")
-    vendors[u] = p
-    print("Vendor Registered")
-
-def vendor_login():
-    u = input("Vendor Username: ")
-    p = input("Password: ")
-    return u if vendors.get(u) == p else None
+    u = input("Admin Username: ")
+    p = getpass.getpass("Password: ")
+    if admins.get(u) == p:
+        current_session["role"] = "admin"
+        current_session["username"] = u
+        print("Admin login successful")
+    else:
+        print("Invalid admin credentials")
 
 def user_signup():
-    u = input("User Username: ")
-    p = input("Password: ")
+    u = input("Username: ")
+    if u in users:
+        print("User already exists")
+        return
+    p = getpass.getpass("Password: ")
     users[u] = p
-    print("User Registered")
+    print("User registered successfully")
 
 def user_login():
     u = input("Username: ")
-    p = input("Password: ")
-    return u if users.get(u) == p else None
+    p = getpass.getpass("Password: ")
+    if users.get(u) == p:
+        current_session["role"] = "user"
+        current_session["username"] = u
+        print("User login successful")
+    else:
+        print("Invalid user credentials")
 
-# VENDOR FUNCTIONS
-
-def add_product(vendor):
-    name = input("Product Name: ")
-    price = float(input("Price: "))
-    products.append({
-        "Vendor": vendor,
-        "Product": name,
-        "Price": price
-    })
-    print("Product Added")
-
-# USER FUNCTIONS
-
-def view_products():
-    if not products:
-        print("No Products Available")
+def add_membership():
+    print("\nAdd Membership (All fields mandatory)")
+    name = input("Member Name: ")
+    if not name:
+        print("Name is mandatory")
         return
-    df = pd.DataFrame(products)
-    print(df)
 
-def add_to_cart(user):
-    view_products()
-    name = input("Enter product name to add: ")
-    for p in products:
-        if p["Product"] == name:
-            cart.append({"User": user, **p})
-            print("Added to Cart")
-            return
-    print("Product not found")
+    print("Select Membership Duration:")
+    print("1. 6 Months (Default)")
+    print("2. 1 Year")
+    print("3. 2 Years")
 
-def checkout(user):
-    user_cart = [c for c in cart if c["User"] == user]
-    if not user_cart:
-        print("Cart Empty")
+    choice = input("Choice: ") or "1"
+
+    duration_map = {
+        "1": 6,
+        "2": 12,
+        "3": 24
+    }
+
+    months = duration_map.get(choice, 6)
+    start_date = datetime.now()
+    end_date = start_date + timedelta(days=months * 30)
+
+    member_id = len(memberships) + 1
+    memberships[member_id] = {
+        "Name": name,
+        "Start": start_date,
+        "End": end_date,
+        "Status": "Active"
+    }
+
+    print(f"Membership added successfully. Membership Number: {member_id}")
+
+def update_membership():
+    try:
+        member_id = int(input("Enter Membership Number: "))
+    except:
+        print("Invalid Membership Number")
         return
-    total = sum(item["Price"] for item in user_cart)
-    orders.append({"User": user, "Total": total, "Status": "Placed"})
-    print("Order Placed | Total =", total)
 
-# ADMIN VIEW
+    if member_id not in memberships:
+        print("Membership not found")
+        return
 
-def admin_panel():
-    print("\nUSERS:", users)
-    print("VENDORS:", vendors)
-    print("PRODUCTS:")
-    if products:
-        print(pd.DataFrame(products))
-    print("ORDERS:")
-    if orders:
-        print(pd.DataFrame(orders))
+    member = memberships[member_id]
+    print("Member Found:", member)
 
-# MAIN MENU
+    print("1. Extend Membership (Default 6 months)")
+    print("2. Cancel Membership")
+
+    choice = input("Choice: ") or "1"
+
+    if choice == "1":
+        member["End"] += timedelta(days=180)
+        print("Membership extended by 6 months")
+    elif choice == "2":
+        member["Status"] = "Cancelled"
+        print("Membership cancelled")
+
+def view_reports():
+    print("\n--- Membership Report ---")
+    if not memberships:
+        print("No records found")
+        return
+
+    for k, v in memberships.items():
+        print(f"ID:{k} | {v['Name']} | Status:{v['Status']} |Valid Till:{v['End'].date()}")
+
+def view_transactions():
+    print("\n--- Transactions ---")
+    for k, v in memberships.items():
+        print(f"Membership {k} -> {v['Status']}")
+
+def admin_menu():
+    while True:
+        print("""
+--- ADMIN MENU ---
+1. Add Membership
+2. Update Membership
+3. Reports
+4. Transactions
+0. Logout
+""")
+        ch = input("Choice: ")
+
+        if ch == "1":
+            add_membership()
+        elif ch == "2":
+            update_membership()
+        elif ch == "3":
+            view_reports()
+        elif ch == "4":
+            view_transactions()
+        elif ch == "0":
+            clear_session()
+            break
+
+def user_menu():
+    while True:
+        print("""
+--- USER MENU ---
+1. View Reports
+2. View Transactions
+0. Logout
+""")
+        ch = input("Choice: ")
+
+        if ch == "1":
+            view_reports()
+        elif ch == "2":
+            view_transactions()
+        elif ch == "0":
+            clear_session()
+            break
 
 while True:
     print("""
-1. Admin Signup
-2. Admin Login
-3. Vendor Signup
-4. Vendor Login
-5. User Signup
-6. User Login
+--- EVENT MANAGEMENT SYSTEM ---
+1. Admin Login
+2. User Signup
+3. User Login
 0. Exit
 """)
-    ch = input("Choice: ")
+    choice = input("Choice: ")
 
-    if ch == "1":
-        admin_signup()
+    if choice == "1":
+        admin_login()
+        if require_login("admin"):
+            admin_menu()
 
-    elif ch == "2":
-        if admin_login():
-            admin_panel()
-        else:
-            print("Invalid Admin Login")
-
-    elif ch == "3":
-        vendor_signup()
-
-    elif ch == "4":
-        v = vendor_login()
-        if v:
-            add_product(v)
-        else:
-            print("Vendor Login Failed")
-
-    elif ch == "5":
+    elif choice == "2":
         user_signup()
 
-    elif ch == "6":
-        u = user_login()
-        if u:
-            while True:
-                print("""
-1. View Products
-2. Add to Cart
-3. Checkout
-0. Logout
-""")
-                c = input("Choice: ")
-                if c == "1":
-                    view_products()
-                elif c == "2":
-                    add_to_cart(u)
-                elif c == "3":
-                    checkout(u)
-                elif c == "0":
-                    break
-        else:
-            print("User Login Failed")
+    elif choice == "3":
+        user_login()
+        if require_login("user"):
+            user_menu()
 
-    elif ch == "0":
+    elif choice == "0":
+        print("Exiting application")
         break
